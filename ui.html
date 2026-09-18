@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GST Inward HSN/SAC Fetcher</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f8f9fa; color: #202124; }
+
+        .header { background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%); color: white; padding: 24px 32px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .header h1 { font-size: 28px; font-weight: 600; margin-bottom: 4px; }
+        .header p { font-size: 14px; opacity: 0.9; }
+
+        .tabs-nav { display: flex; justify-content: space-between; align-items: center; padding: 16px 32px; background: white; border-bottom: 2px solid #e5e7eb; }
+        .tabs { display: flex; gap: 0; }
+        .tab-btn { padding: 10px 20px; background: none; border: none; cursor: pointer; font-size: 14px; font-weight: 600; color: #6b7280; border-bottom: 3px solid transparent; transition: all 0.2s; }
+        .tab-btn:hover { color: #0066cc; }
+        .tab-btn.active { color: #0066cc; border-bottom-color: #0066cc; }
+
+        .main { display: flex; min-height: calc(100vh - 140px); }
+        .left { flex: 1; padding: 32px; overflow-y: auto; display: flex; flex-direction: column; gap: 24px; }
+        .right { width: 340px; padding: 32px; overflow-y: auto; display: flex; flex-direction: column; gap: 24px; border-left: 1px solid #e5e7eb; }
+
+        .tab-content { display: none; width: 100%; }
+        .tab-content.active { display: flex; flex-direction: column; gap: 24px; }
+
+        .card { background: white; padding: 24px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+        .card h2 { font-size: 16px; font-weight: 600; margin-bottom: 16px; color: #1f2937; }
+        .card h3 { font-size: 14px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; }
+        .card.border-top-blue { border-top: 4px solid #0066cc; }
+        .card.border-top-purple { border-top: 4px solid #8b5cf6; }
+        .card.border-top-green { border-top: 4px solid #059669; }
+
+        label { display: block; font-size: 12px; font-weight: 600; color: #4b5563; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+        select { width: 100%; padding: 10px 12px; border: 2px solid #e5e7eb; border-radius: 6px; font-size: 14px; font-family: inherit; background: white; color: #202124; cursor: pointer; }
+        select:focus { outline: none; border-color: #0066cc; box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1); }
+
+        .btn-group { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+        button { padding: 12px 16px; border: 2px solid #e5e7eb; border-radius: 6px; font-size: 14px; font-weight: 500; cursor: pointer; transition: all 0.2s; font-family: inherit; background: white; color: #0066cc; }
+        button:hover:not(:disabled) { border-color: #0066cc; background: #f0f9ff; }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        button.primary { background: #0066cc; color: white; border-color: #0066cc; }
+        button.primary:hover { background: #0052a3; }
+        button.success { background: #059669; color: white; border-color: #059669; }
+        button.success:hover { background: #047857; }
+        button.warning { background: #f59e0b; color: white; border-color: #f59e0b; width: 100%; }
+        button.warning:hover { background: #d97706; }
+        button.danger { background: #ef4444; color: white; border-color: #ef4444; width: 100%; }
+        button.danger:hover { background: #dc2626; }
+
+        .subtitle { font-size: 12px; color: #6b7280; margin-bottom: 16px; }
+        .subtitle::before { content: "— "; }
+
+        .info-box { margin-top: 16px; padding: 12px; background: #f3f4f6; border-radius: 6px; border-left: 3px solid #0066cc; font-size: 13px; color: #4b5563; }
+        .success-msg { background: #d1fae5; border-left: 3px solid #10b981; padding: 12px; border-radius: 6px; color: #065f46; font-size: 13px; margin-top: 12px; }
+
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: end; }
+        .status-ind { display: flex; align-items: center; gap: 12px; }
+        .status-dot { width: 10px; height: 10px; background: #2d7c4c; border-radius: 50%; }
+
+        .logbox { font-family: 'Consolas', monospace; font-size: 12px; color: #374151; line-height: 1.6; max-height: 150px; overflow-y: auto; padding: 8px; background: #f9fafb; border-radius: 4px; }
+        .logbox .ok { color: #1a7f4b; }
+        .logbox .err { color: #c0392b; }
+
+        .gstin-list { display: flex; flex-direction: column; gap: 12px; max-height: 250px; overflow-y: auto; }
+        .gstin-item { display: flex; justify-content: space-between; align-items: center; padding: 12px; background: #f9fafb; border-radius: 6px; border-left: 3px solid #0066cc; font-size: 13px; }
+        .gstin-item strong { color: #0066cc; font-weight: 600; }
+        .gstin-empty { text-align: center; color: #9ca3af; padding: 24px; }
+
+        .footer { border-top: 1px solid #e5e7eb; padding: 20px 32px; text-align: center; background: white; color: #9ca3af; font-size: 13px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>GST Inward HSN/SAC Fetcher</h1>
+        <p>Automated GST Inward Invoice processing & HSN-wise reporting</p>
+    </div>
+
+    <div class="tabs-nav">
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('home', event)">Home</button>
+            <button class="tab-btn" onclick="switchTab('reports', event)">Reports</button>
+        </div>
+        <button class="tab-btn" onclick="switchTab('settings', event)">Settings</button>
+    </div>
+
+    <div class="main">
+        <!-- HOME TAB -->
+        <div id="home" class="tab-content active">
+            <div class="left">
+                <div class="card">
+                    <label>GSTIN Selection</label>
+                    <select id="gstin" onchange="updateGstin()">
+                        <option value="">All / not specified</option>
+                    </select>
+                </div>
+
+                <div class="card">
+                    <h2>Upload JSON</h2>
+                    <p class="subtitle">Upload GST JSON files for automatic processing and HSN-wise report generation.</p>
+
+                    <div class="btn-group">
+                        <button disabled style="opacity: 0.5;">
+                            <div style="font-size: 12px; color: #9ca3af;">Coming soon (V2)</div>
+                            Auto Fetch
+                        </button>
+                        <button class="primary" onclick="uploadJson()">
+                            Manual Upload
+                            <div style="font-size: 12px; color: rgba(255,255,255,0.8);">Select JSON file(s)</div>
+                        </button>
+                    </div>
+
+                    <div id="uploadMsg"></div>
+                </div>
+
+                <div class="card">
+                    <h2>Save Folder</h2>
+                    <div class="info-box">
+                        📁 <span id="folderPath">Loading...</span>
+                    </div>
+                    <button onclick="browseSaveFolder()" style="width: 100%; margin-top: 12px;">Browse Folder</button>
+                </div>
+
+                <div class="card">
+                    <h2>Generate Excel</h2>
+                    <p class="subtitle">Export uploaded invoices as Excel report.</p>
+                    <button class="warning" onclick="generateExcel()">📊 Generate Excel</button>
+                    <div id="excelMsg"></div>
+                </div>
+            </div>
+
+            <div class="right">
+                <div class="card border-top-blue">
+                    <h3>Live Status</h3>
+                    <div class="status-ind">
+                        <div class="status-dot"></div>
+                        <div>
+                            <p style="font-size: 11px; color: #6b7280; text-transform: uppercase; font-weight: 600;">System Status</p>
+                            <p id="status" style="font-size: 15px; color: #1f2937; font-weight: 600; margin-top: 4px;">Ready</p>
+                        </div>
+                    </div>
+                    <div id="logbox" class="logbox" style="margin-top: 12px;">Ready. Upload JSON to begin.</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- REPORTS TAB -->
+        <div id="reports" class="tab-content">
+            <div class="left">
+                <div class="card">
+                    <h2>Generate Consolidated Reports</h2>
+                    <p class="subtitle">Select date range from available data to generate consolidated reports.</p>
+
+                    <div class="grid-2">
+                        <div>
+                            <label for="fromMonth">From Month</label>
+                            <select id="fromMonth" onchange="updateReportInfo()"></select>
+                        </div>
+                        <div>
+                            <label for="toMonth">To Month</label>
+                            <select id="toMonth" onchange="updateReportInfo()"></select>
+                        </div>
+                    </div>
+
+                    <button class="success" onclick="generateReport()" style="width: 100%; margin-top: 16px;">Generate Report</button>
+                    <div id="reportMsg"></div>
+                </div>
+            </div>
+
+            <div class="right">
+                <div class="card border-top-green">
+                    <h3>Report Info</h3>
+                    <div id="reportInfo" style="font-size: 13px; color: #6b7280; line-height: 1.6;">
+                        <p>Select a date range to generate HSN-wise consolidated reports from all uploaded invoices.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SETTINGS TAB -->
+        <div id="settings" class="tab-content">
+            <div class="left">
+                <div class="card border-top-purple">
+                    <h3>Registered GSTINs</h3>
+                    <div id="gstinList" class="gstin-list"></div>
+                </div>
+            </div>
+
+            <div class="right">
+                <div class="card">
+                    <h3>Actions</h3>
+                    <button onclick="openAddGstinDialog()" style="width: 100%; margin-bottom: 12px;">➕ Add GSTIN</button>
+                    <button class="danger" onclick="clearData()">🗑️ Clear All Data</button>
+                    <div id="addGstinMsg"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">Developed by Sunayana</div>
+
+    <script>
+        const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+        let uploadedCount = 0;
+        let uploadedPeriods = { from: null, to: null };
+
+        function formatPeriod(p) {
+            if (!p) return '';
+            const [y, m] = p.split('-');
+            return `${MONTHS[parseInt(m, 10) - 1]} ${y}`;
+        }
+
+        function switchTab(tab, e) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+            document.getElementById(tab).classList.add('active');
+            e.target.classList.add('active');
+            if (tab === 'settings') loadGstins();
+        }
+
+        function log(msg, cls) {
+            const box = document.getElementById('logbox');
+            const line = document.createElement('div');
+            if (cls) line.className = cls;
+            line.textContent = msg;
+            box.appendChild(line);
+            box.scrollTop = box.scrollHeight;
+        }
+
+        async function uploadJson() {
+            const gstin = document.getElementById('gstin').value;
+            document.getElementById('logbox').innerHTML = '';
+            document.getElementById('uploadMsg').innerHTML = '';
+            log('Opening file picker...');
+            const result = await window.pywebview.api.upload_json(gstin);
+            if (result.cancelled) { log('Cancelled.'); return; }
+
+            uploadedCount = result.total_ingested;
+            uploadedPeriods = { from: null, to: null };
+
+            (result.files || []).forEach(f => {
+                if (f.error) { log(`✗ ${f.filename}: ${f.error}`, 'err'); return; }
+                const periodLabel = f.detected_period ? formatPeriod(f.detected_period) : f.periods.map(formatPeriod).join(', ');
+                log(`✓ ${f.filename} — ${f.ingested} invoice(s), ${periodLabel}`, 'ok');
+                if (f.periods && f.periods.length > 0) {
+                    f.periods.sort();
+                    if (!uploadedPeriods.from || f.periods[0] < uploadedPeriods.from) uploadedPeriods.from = f.periods[0];
+                    if (!uploadedPeriods.to || f.periods[f.periods.length - 1] > uploadedPeriods.to) uploadedPeriods.to = f.periods[f.periods.length - 1];
+                }
+            });
+            log(`— ${result.total_ingested} total, ${result.total_failed} failed`);
+            if (uploadedCount > 0) {
+                document.getElementById('uploadMsg').innerHTML = `<div class="success-msg">✓ ${result.total_ingested} invoice(s) processed successfully</div>`;
+            }
+            await refreshReportPeriods();
+        }
+
+        async function generateExcel() {
+            if (uploadedCount === 0) { alert('Upload JSON first'); return; }
+            if (!uploadedPeriods.from || !uploadedPeriods.to) { alert('No periods found'); return; }
+            const gstin = document.getElementById('gstin').value;
+            log(`Generating Excel for ${formatPeriod(uploadedPeriods.from)} to ${formatPeriod(uploadedPeriods.to)}...`);
+            const result = await window.pywebview.api.generate_range(uploadedPeriods.from, uploadedPeriods.to, gstin);
+            if (result.error) { log(`✗ Error: ${result.error}`, 'err'); alert('Error: ' + result.error); }
+            else { log(`✓ Excel generated: ${result.path}`, 'ok'); alert(`✓ Excel generated!\n\n${result.path}`); }
+        }
+
+        async function generateReport() {
+            const from = document.getElementById('fromMonth').value;
+            const to = document.getElementById('toMonth').value;
+            const gstin = document.getElementById('gstin').value;
+            if (!from || !to) { alert('Select both months'); return; }
+            log(`Generating report: ${formatPeriod(from)} to ${formatPeriod(to)}...`);
+            const result = await window.pywebview.api.generate_range(from, to, gstin);
+            if (result.error) { log(`✗ Error: ${result.error}`, 'err'); alert('Error: ' + result.error); }
+            else { log(`✓ Report generated: ${result.path}`, 'ok'); alert(`✓ Report generated!\n\n${result.path}`); }
+        }
+
+        async function updateReportInfo() {
+            const from = document.getElementById('fromMonth').value;
+            const to = document.getElementById('toMonth').value;
+            if (from && to) {
+                const gstin = document.getElementById('gstin').value;
+                const result = await window.pywebview.api.generate_range(from, to, gstin);
+                if (!result.error) {
+                    document.getElementById('reportInfo').innerHTML = `📊 <strong>${result.invoice_count} invoices</strong> available<br>Period: ${formatPeriod(from)} to ${formatPeriod(to)}`;
+                }
+            }
+        }
+
+        async function refreshReportPeriods() {
+            const gstin = document.getElementById('gstin').value;
+            const periods = await window.pywebview.api.get_periods(gstin);
+            const from = document.getElementById('fromMonth');
+            const to = document.getElementById('toMonth');
+            from.innerHTML = periods.map(p => `<option value="${p}">${formatPeriod(p)}</option>`).join('') || '<option value="">No data</option>';
+            to.innerHTML = periods.map(p => `<option value="${p}">${formatPeriod(p)}</option>`).join('') || '<option value="">No data</option>';
+            if (periods.length) { from.value = periods[0]; to.value = periods[periods.length - 1]; }
+        }
+
+        async function loadGstins() {
+            try {
+                const gstins = await window.pywebview.api.list_gstins();
+                const list = document.getElementById('gstinList');
+                if (!gstins || gstins.length === 0) { list.innerHTML = '<div class="gstin-empty">No GSTINs registered</div>'; return; }
+                list.innerHTML = gstins.map(g => `<div class="gstin-item"><strong>${g}</strong><span style="color: #6b7280; font-size: 12px;">Entity Name</span></div>`).join('');
+            } catch (e) { document.getElementById('gstinList').innerHTML = '<div class="gstin-empty">Error loading</div>'; }
+        }
+
+        async function browseSaveFolder() {
+            const folder = await window.pywebview.api.browse_folder();
+            if (folder) await updateFolder();
+        }
+
+        async function updateFolder() {
+            const folder = await window.pywebview.api.get_save_folder();
+            document.getElementById('folderPath').textContent = folder;
+        }
+
+        async function updateGstin() {
+            await refreshReportPeriods();
+        }
+
+        async function clearData() {
+            if (!confirm('Delete all invoice data? (Cannot undo)')) return;
+            const result = await window.pywebview.api.clear_all_data();
+            if (result.error) alert('Error: ' + result.error);
+            else { alert('Data cleared'); document.getElementById('logbox').innerHTML = 'Data cleared. Ready for new uploads.'; uploadedCount = 0; uploadedPeriods = { from: null, to: null }; await refreshReportPeriods(); }
+        }
+
+        async function initGstins() {
+            try {
+                const gstins = await window.pywebview.api.list_gstins();
+                const sel = document.getElementById('gstin');
+                gstins.forEach(g => { const opt = document.createElement('option'); opt.value = g; opt.textContent = g; sel.appendChild(opt); });
+            } catch (e) { console.log('No GSTINs'); }
+        }
+
+        function openAddGstinDialog() {
+            const gstin = prompt('Enter GSTIN (15 digits):\nExample: 07AAAA0000A1Z5');
+            if (!gstin) return;
+            if (gstin.length !== 15 || !/^[0-9A-Z]+$/.test(gstin)) {
+                alert('Invalid GSTIN. Must be 15 alphanumeric characters.');
+                return;
+            }
+            const entityName = prompt('Enter Entity Name (Optional):');
+            addGstin(gstin, entityName || '');
+        }
+
+        async function addGstin(gstin, entityName) {
+            try {
+                const result = await window.pywebview.api.add_gstin(gstin, entityName);
+                if (result.error) {
+                    alert('Error: ' + result.error);
+                } else {
+                    alert(`✓ GSTIN added: ${gstin}`);
+                    await loadGstins();
+                    const sel = document.getElementById('gstin');
+                    const opt = document.createElement('option');
+                    opt.value = gstin;
+                    opt.textContent = gstin;
+                    sel.appendChild(opt);
+                    sel.value = gstin;
+                }
+            } catch (e) {
+                alert('Error: ' + e.message);
+            }
+        }
+
+        window.addEventListener('pywebviewready', async () => { await initGstins(); await updateFolder(); await refreshReportPeriods(); });
+    </script>
+</body>
+</html>
